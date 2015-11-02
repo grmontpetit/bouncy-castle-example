@@ -235,7 +235,7 @@ public class Main3 {
         builder.addData(keyBagBuilder.build());
         builder.addEncryptedData(
                 new JcePKCSPBEOutputEncryptorBuilder(PKCSObjectIdentifiers.pbeWithSHAAnd128BitRC2_CBC).setProvider("BC")
-                        .build(JcaUtils.KEY_PASSWD),
+                        .build(ODL_KEYSTORE_PASS),
                 new PKCS12SafeBag[] { eeCertBagBuilder.build(), caCertBagBuilder.build(), taCertBagBuilder.build() });
         PKCS12PfxPdu pfx = builder.build(new JcePKCS12MacCalculatorBuilder(NISTObjectIdentifiers.id_sha256),
                 JcaUtils.KEY_PASSWD);
