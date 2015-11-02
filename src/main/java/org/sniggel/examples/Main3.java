@@ -89,6 +89,7 @@ public class Main3 {
 
     private static final int VALIDITY_PERIOD = 365;
     private static final int COLUMN_MAX = 64;
+    private static char[] ODL_KEYSTORE_PASS = "opendaylight".toCharArray();
 
     public static void main(String[] args) throws Exception {
         Security.addProvider(new BouncyCastleProvider());
@@ -215,20 +216,20 @@ public class Main3 {
 
     private static void createPKCS12File(OutputStream pfxOut, PrivateKey key, Certificate[] chain) throws Exception {
         OutputEncryptor encOut = new JcePKCSPBEOutputEncryptorBuilder(NISTObjectIdentifiers.id_aes256_CBC)
-                .setProvider("BC").build(JcaUtils.KEY_PASSWD);
+                .setProvider("BC").build(ODL_KEYSTORE_PASS);
         PKCS12SafeBagBuilder taCertBagBuilder = new JcaPKCS12SafeBagBuilder((X509Certificate) chain[2]);
         taCertBagBuilder.addBagAttribute(PKCS12SafeBag.friendlyNameAttribute,
-                new DERBMPString("Bouncy Primary Certificate"));
+                new DERBMPString("opendaylight"));
         PKCS12SafeBagBuilder caCertBagBuilder = new JcaPKCS12SafeBagBuilder((X509Certificate) chain[1]);
         caCertBagBuilder.addBagAttribute(PKCS12SafeBag.friendlyNameAttribute,
-                new DERBMPString("Bouncy Intermediate Certificate"));
+                new DERBMPString("opendaylight"));
         JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
         PKCS12SafeBagBuilder eeCertBagBuilder = new JcaPKCS12SafeBagBuilder((X509Certificate) chain[0]);
-        eeCertBagBuilder.addBagAttribute(PKCS12SafeBag.friendlyNameAttribute, new DERBMPString("Eric's Key"));
+        eeCertBagBuilder.addBagAttribute(PKCS12SafeBag.friendlyNameAttribute, new DERBMPString("opendaylight"));
         SubjectKeyIdentifier pubKeyId = extUtils.createSubjectKeyIdentifier(chain[0].getPublicKey());
         eeCertBagBuilder.addBagAttribute(PKCS12SafeBag.localKeyIdAttribute, pubKeyId);
         PKCS12SafeBagBuilder keyBagBuilder = new JcaPKCS12SafeBagBuilder(key, encOut);
-        keyBagBuilder.addBagAttribute(PKCS12SafeBag.friendlyNameAttribute, new DERBMPString("Eric's Key"));
+        keyBagBuilder.addBagAttribute(PKCS12SafeBag.friendlyNameAttribute, new DERBMPString("opendaylight"));
         keyBagBuilder.addBagAttribute(PKCS12SafeBag.localKeyIdAttribute, pubKeyId);
         PKCS12PfxPduBuilder builder = new PKCS12PfxPduBuilder();
         builder.addData(keyBagBuilder.build());
