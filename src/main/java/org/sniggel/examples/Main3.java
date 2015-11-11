@@ -24,6 +24,7 @@ import java.util.Map;
 import javax.security.auth.x500.X500Principal;
 
 import org.apache.commons.codec.binary.Base64;
+import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.ContentInfo;
@@ -53,11 +54,9 @@ import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.InputDecryptorProvider;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.OutputEncryptor;
-import org.bouncycastle.operator.bc.BcContentSignerBuilder;
 import org.bouncycastle.operator.bc.BcDefaultDigestProvider;
 import org.bouncycastle.operator.bc.BcRSAContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.PKCS10CertificationRequestBuilder;
 import org.bouncycastle.pkcs.PKCS12PfxPdu;
@@ -69,7 +68,6 @@ import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo;
 import org.bouncycastle.pkcs.PKCSException;
 import org.bouncycastle.pkcs.bc.BcPKCS10CertificationRequestBuilder;
 import org.bouncycastle.pkcs.bc.BcPKCS12MacCalculatorBuilderProvider;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS12SafeBagBuilder;
 import org.bouncycastle.pkcs.jcajce.JcePKCS12MacCalculatorBuilder;
 import org.bouncycastle.pkcs.jcajce.JcePKCSPBEInputDecryptorProviderBuilder;
@@ -149,10 +147,6 @@ public class Main3 {
     }
 
     private static X509CertificateHolder buildRootPrivCertLightV3(AsymmetricCipherKeyPair keyPair) throws IOException, OperatorCreationException {
-//      ASN1ObjectIdentifier[] obj = { BCStyle.C, BCStyle.ST, BCStyle.O, BCStyle.OU, BCStyle.CN };
-//      String[] values = { "CA", "QC", "Inocybe", "Dev", "Certificate1" };
-//      x500NameBld.addMultiValuedRDN(obj, values);
-//      X500Name name = new X500Name("C=CA, ST=QC, O=Inocybe, OU=Dev, CN=Certificate1");
       X500NameBuilder x500IssuerBld = new X500NameBuilder(BCStyle.INSTANCE);
       x500IssuerBld.addRDN(BCStyle.C, "CA");
       x500IssuerBld.addRDN(BCStyle.ST, "Quebec");
@@ -186,6 +180,7 @@ public class Main3 {
      * @return
      * @throws Exception
      */
+    @SuppressWarnings("unused")
     private static PKCS12PfxPdu readPKCS12File(InputStream pfxIn) throws Exception {
         PKCS12PfxPdu pfx = new PKCS12PfxPdu(Streams.readAll(pfxIn));
         if (!pfx.isMacValid(new BcPKCS12MacCalculatorBuilderProvider(BcDefaultDigestProvider.INSTANCE),
@@ -193,10 +188,10 @@ public class Main3 {
             System.err.println("PKCS#12 MAC test failed!");
         }
         ContentInfo[] infos = pfx.getContentInfos();
-        Map certMap = new HashMap();
-        Map certKeyIds = new HashMap();
-        Map privKeyMap = new HashMap();
-        Map privKeyIds = new HashMap();
+        Map<String, X509Certificate> certMap = new HashMap<String, X509Certificate>();
+        Map<ASN1Encodable, X509Certificate> certKeyIds = new HashMap<ASN1Encodable, X509Certificate>();
+        Map<String, PrivateKey> privKeyMap = new HashMap<String, PrivateKey>();
+        Map<PrivateKey, ASN1Encodable> privKeyIds = new HashMap<PrivateKey, ASN1Encodable>();
 
         InputDecryptorProvider inputDecryptorProvider = new JcePKCSPBEInputDecryptorProviderBuilder().setProvider("BC")
                 .build(JcaUtils.KEY_PASSWD);
@@ -238,12 +233,14 @@ public class Main3 {
             }
         }
         System.out.println("########## PFX Dump");
-        for (Iterator it = privKeyMap.keySet().iterator(); it.hasNext();) {
+        for (@SuppressWarnings("rawtypes")
+        Iterator it = privKeyMap.keySet().iterator(); it.hasNext();) {
             String alias = (String) it.next();
             System.out.println("Key Entry: " + alias + ", Subject: "
                     + (((X509Certificate) certKeyIds.get(privKeyIds.get(privKeyMap.get(alias)))).getSubjectDN()));
         }
-        for (Iterator it = certMap.keySet().iterator(); it.hasNext();) {
+        for (@SuppressWarnings("rawtypes")
+        Iterator it = certMap.keySet().iterator(); it.hasNext();) {
             String alias = (String) it.next();
             System.out.println("Certificate Entry: " + alias + ", Subject: "
                     + (((X509Certificate) certMap.get(alias)).getSubjectDN()));
@@ -252,6 +249,7 @@ public class Main3 {
         return pfx;
     }
 
+    @SuppressWarnings("unused")
     private static void createPKCS12File(OutputStream pfxOut, PrivateKey key, Certificate[] chain) throws Exception {
         OutputEncryptor encOut = new JcePKCSPBEOutputEncryptorBuilder(NISTObjectIdentifiers.id_aes256_CBC)
                 .setProvider("BC").build(ODL_KEYSTORE_PASS);
@@ -264,6 +262,7 @@ public class Main3 {
         JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
         PKCS12SafeBagBuilder eeCertBagBuilder = new JcaPKCS12SafeBagBuilder((X509Certificate) chain[0]);
         eeCertBagBuilder.addBagAttribute(PKCS12SafeBag.friendlyNameAttribute, new DERBMPString("opendaylight"));
+        @SuppressWarnings("deprecation")
         SubjectKeyIdentifier pubKeyId = extUtils.createSubjectKeyIdentifier(chain[0].getPublicKey());
         eeCertBagBuilder.addBagAttribute(PKCS12SafeBag.localKeyIdAttribute, pubKeyId);
         PKCS12SafeBagBuilder keyBagBuilder = new JcaPKCS12SafeBagBuilder(key, encOut);
@@ -286,10 +285,6 @@ public class Main3 {
      * Build a sample V3 certificate to use as a CA root certificate
      */
     public static X509CertificateHolder buildRootPubCertLightV3(AsymmetricCipherKeyPair keyPair) throws Exception {
-//        ASN1ObjectIdentifier[] obj = { BCStyle.C, BCStyle.ST, BCStyle.O, BCStyle.OU, BCStyle.CN };
-//        String[] values = { "CA", "QC", "Inocybe", "Dev", "Certificate1" };
-//        x500NameBld.addMultiValuedRDN(obj, values);
-//        X500Name name = new X500Name("C=CA, ST=QC, O=Inocybe, OU=Dev, CN=Certificate1");
         X500NameBuilder x500IssuerBld = new X500NameBuilder(BCStyle.INSTANCE);
         x500IssuerBld.addRDN(BCStyle.C, "CA");
         x500IssuerBld.addRDN(BCStyle.ST, "Quebec");
@@ -429,6 +424,7 @@ public class Main3 {
         return new JcaX509CertificateConverter().setProvider("BC").getCertificate(certBldr.build(signer));
     }
 
+    @SuppressWarnings("unused")
     private static KeyPair generateKeyPair() throws NoSuchAlgorithmException, NoSuchProviderException {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA", "BC");
         kpg.initialize(2048);
@@ -437,6 +433,7 @@ public class Main3 {
         return kp;
     }
 
+    @SuppressWarnings("unused")
     private static void printCert(X509Certificate cert) {
         byte[] encodedPubKey = Base64.encodeBase64(cert.getPublicKey().getEncoded());
         byte[] formattedPubKey = formatKey(encodedPubKey);
@@ -445,22 +442,16 @@ public class Main3 {
     }
 
     private static void printOneLineCert(X509CertificateHolder caCert2) throws IOException {
-        // TODO Auto-generated method stub
         System.out.print("\n");
-        byte[] encodedPubKey = Base64.encodeBase64(caCert2.getEncoded());
-        System.out.println(new String(encodedPubKey));
+        byte[] encodedKey = Base64.encodeBase64(caCert2.getEncoded());
+        System.out.println(new String(encodedKey));
     }
 
+    @SuppressWarnings("unused")
     private static void printCert(X509CertificateHolder cert) throws IOException {
-//        for (byte b: cert.getEncoded()) {
-//            System.out.print(b);
-//        }
         System.out.print("\n");
         byte[] encodedPubKey = Base64.encodeBase64(cert.getEncoded());
         System.out.println(new String(encodedPubKey));
-//        for (byte b: encodedPubKey) {
-//            System.out.print(b);
-//        }
         System.out.print("\n");
         byte[] formattedPubKey = formatKey(encodedPubKey);
         String stringPubKey = new String(formattedPubKey).replace(";", "\n");
@@ -469,7 +460,7 @@ public class Main3 {
 
     /**
      * This method is supposed to add carriage returns
-     * at every 64 characters but it fucks everything up...
+     * at every 64 characters but it mess everything up...
      * Many hours wasted.
      * @param encodedKey
      * @return
@@ -498,7 +489,10 @@ public class Main3 {
     }
 
     private static class FixedRand extends SecureRandom {
-
+        /**
+         * 
+         */
+        private static final long serialVersionUID = 3619077188182373998L;
         MessageDigest sha;
         byte[] state;
 
