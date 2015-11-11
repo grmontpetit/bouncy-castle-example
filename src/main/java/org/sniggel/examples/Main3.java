@@ -35,6 +35,9 @@ import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.BasicConstraints;
 import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.ExtensionsGenerator;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.KeyUsage;
 import org.bouncycastle.asn1.x509.SubjectKeyIdentifier;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
@@ -50,16 +53,23 @@ import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.InputDecryptorProvider;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.OutputEncryptor;
+import org.bouncycastle.operator.bc.BcContentSignerBuilder;
 import org.bouncycastle.operator.bc.BcDefaultDigestProvider;
 import org.bouncycastle.operator.bc.BcRSAContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder;
+import org.bouncycastle.pkcs.PKCS10CertificationRequest;
+import org.bouncycastle.pkcs.PKCS10CertificationRequestBuilder;
 import org.bouncycastle.pkcs.PKCS12PfxPdu;
 import org.bouncycastle.pkcs.PKCS12PfxPduBuilder;
 import org.bouncycastle.pkcs.PKCS12SafeBag;
 import org.bouncycastle.pkcs.PKCS12SafeBagBuilder;
 import org.bouncycastle.pkcs.PKCS12SafeBagFactory;
 import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo;
+import org.bouncycastle.pkcs.PKCSException;
+import org.bouncycastle.pkcs.bc.BcPKCS10CertificationRequestBuilder;
 import org.bouncycastle.pkcs.bc.BcPKCS12MacCalculatorBuilderProvider;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS12SafeBagBuilder;
 import org.bouncycastle.pkcs.jcajce.JcePKCS12MacCalculatorBuilder;
 import org.bouncycastle.pkcs.jcajce.JcePKCSPBEInputDecryptorProviderBuilder;
@@ -108,6 +118,34 @@ public class Main3 {
         printOneLineCert(publicKey);
         System.out.println("\nPrivate key: ");
         printOneLineCert(privateKey);
+        System.out.println("\nCsr: ");
+        generatePkcs10Csr(akp);
+    }
+
+    private static void generatePkcs10Csr(AsymmetricCipherKeyPair akp) throws 
+                                            NoSuchAlgorithmException,
+                                            NoSuchProviderException,
+                                            IOException,
+                                            OperatorCreationException,
+                                            PKCSException {
+        AlgorithmIdentifier sigAlg = new DefaultSignatureAlgorithmIdentifierFinder().find("md5WithRSAEncryption");
+        AlgorithmIdentifier digAlg = new DefaultDigestAlgorithmIdentifierFinder().find(sigAlg);
+        X500NameBuilder x500NameBld = new X500NameBuilder(BCStyle.INSTANCE);
+        x500NameBld.addRDN(BCStyle.C, "CA");
+        x500NameBld.addRDN(BCStyle.ST, "Quebec");
+        x500NameBld.addRDN(BCStyle.L, "Montreal");
+        x500NameBld.addRDN(BCStyle.O, "Dev");
+        x500NameBld.addRDN(BCStyle.CN, "Inocybe");
+        X500Name subject = x500NameBld.build();
+        // This one should take the public key as per the javadoc
+        PKCS10CertificationRequestBuilder requestBuilder = new BcPKCS10CertificationRequestBuilder(subject, akp.getPublic());
+        ExtensionsGenerator extGen = new ExtensionsGenerator();
+        extGen.addExtension(Extension.subjectAlternativeName, false,
+                new GeneralNames(new GeneralName(GeneralName.rfc822Name, "grmontpetit@inocybe.com")));
+        requestBuilder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extGen.generate());
+        // This one takes the private key as per the javadoc
+        PKCS10CertificationRequest req1 = requestBuilder.build(new BcRSAContentSignerBuilder(sigAlg, digAlg).build(akp.getPrivate()));
+        System.out.println(new String(Base64.encodeBase64(req1.getEncoded())));
     }
 
     private static X509CertificateHolder buildRootPrivCertLightV3(AsymmetricCipherKeyPair keyPair) throws IOException, OperatorCreationException {
